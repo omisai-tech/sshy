@@ -1,0 +1,150 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[BUG] "
+labels: ["bug", "triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Bug Report
+
+        Thank you for reporting a bug! Please fill out the information below to help us understand and reproduce the issue.
+
+        **Before submitting:**
+        - [ ] I have searched for existing issues to avoid duplicates
+        - [ ] I have tested with the latest version
+        - [ ] I have included all relevant information
+
+  - type: input
+    id: version
+    attributes:
+      label: sshy Version
+      description: What version of sshy are you using? Run `sshy --version` or check your build.
+      placeholder: "e.g., v1.0.0 or commit hash"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other (please specify)
+    validations:
+      required: true
+
+  - type: input
+    id: go_version
+    attributes:
+      label: Go Version
+      description: What version of Go are you using? Run `go version`.
+      placeholder: "e.g., go1.21.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: command
+    attributes:
+      label: Affected Command
+      description: Which sshy command is affected by this bug?
+      options:
+        - list
+        - connect
+        - add
+        - edit
+        - rm
+        - scp
+        - sftp
+        - init
+        - Other (please specify)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Provide a clear and concise description of the bug.
+      placeholder: "What happened? What did you expect to happen?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide step-by-step instructions to reproduce the bug.
+      placeholder: |
+        1. Run `sshy ...`
+        2. Select option '...'
+        3. See error
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: error_output
+    attributes:
+      label: Error Output
+      description: If applicable, paste the full error message or output here.
+      render: shell
+
+  - type: textarea
+    id: config_files
+    attributes:
+      label: Configuration Files
+      description: If relevant, include relevant parts of your configuration files (servers.yaml, local.yaml). Be careful not to include sensitive information.
+      placeholder: |
+        servers.yaml:
+        ```yaml
+        # relevant config here
+        ```
+
+        local.yaml:
+        ```yaml
+        # relevant config here
+        ```
+      render: yaml
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here, such as environment details, recent changes, or workarounds you've tried.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following before submitting
+      options:
+        - label: I have read the [Contributing Guide](https://github.com/omisai-tech/sshy/blob/main/CONTRIBUTING.md)
+          required: true
+        - label: I have searched for existing issues
+          required: true
+        - label: I have included all requested information
+          required: true

@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+version: 2
+
+project_name: sshy
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: sshy
+    main: ./main.go
+    binary: sshy
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: "checksums.txt"
+
+dockers:
+  - image_templates:
+      - "ghcr.io/omisai-tech/sshy:{{ .Version }}"
+      - "ghcr.io/omisai-tech/sshy:latest"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title=sshy"
+      - "--label=org.opencontainers.image.description=Git-backed SSH manager CLI"
+      - "--label=org.opencontainers.image.source=https://github.com/omisai-tech/sshy"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+changelog:
+  sort: asc
+
+release:
+  github:
+    owner: omisai-tech
+    name: sshy
+  prerelease: auto
