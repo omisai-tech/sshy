@@ -700,3 +700,116 @@ func TestLoadLocalConfig_UserHomeDirError(t *testing.T) {
 		t.Error("Expected error when UserHomeDir fails, got nil")
 	}
 }
+
+func TestLoadServers_WithJSONConfig(t *testing.T) {
+	configDir, cleanup := setupTestDir(t)
+	defer cleanup()
+
+	homeDir, homeCleanup := setupTestHomeDir(t)
+	defer homeCleanup()
+
+	sharedServers := models.Servers{
+		{Name: "json-server1", Host: "json-host1", User: "json-user1", Port: 22},
+		{Name: "json-server2", Host: "json-host2", User: "json-user2", Port: 2222},
+	}
+	sharedData, _ := Marshal(sharedServers, FormatJSON)
+	os.WriteFile(filepath.Join(configDir, "servers.json"), sharedData, 0644)
+
+	localConfig := LocalConfig{
+		Servers: make(map[string]models.Server),
+		Private: models.Servers{},
+	}
+	localData, _ := Marshal(localConfig, FormatJSON)
+	os.WriteFile(filepath.Join(homeDir, ".sshy", "local.json"), localData, 0644)
+
+	servers, err := LoadServersWithPath(configDir, "servers.json")
+	if err != nil {
+		t.Fatalf("Unexpected error loading JSON config: %v", err)
+	}
+	if len(servers) != 2 {
+		t.Errorf("Expected 2 servers, got %d", len(servers))
+	}
+	if servers[0].Name != "json-server1" {
+		t.Errorf("Expected first server name 'json-server1', got '%s'", servers[0].Name)
+	}
+}
+
+func TestLoadServers_FallbackToJSON(t *testing.T) {
+	configDir, cleanup := setupTestDir(t)
+	defer cleanup()
+
+	homeDir, homeCleanup := setupTestHomeDir(t)
+	defer homeCleanup()
+
+	sharedServers := models.Servers{
+		{Name: "fallback-server", Host: "fallback-host", User: "fallback-user", Port: 22},
+	}
+	sharedData, _ := Marshal(sharedServers, FormatJSON)
+	os.WriteFile(filepath.Join(configDir, "servers.json"), sharedData, 0644)
+
+	localConfig := LocalConfig{
+		Servers: make(map[string]models.Server),
+		Private: models.Servers{},
+	}
+	localData, _ := yaml.Marshal(localConfig)
+	os.WriteFile(filepath.Join(homeDir, ".sshy", "local.yaml"), localData, 0644)
+
+	servers, err := LoadServersWithPath(configDir, "servers.yaml")
+	if err != nil {
+		t.Fatalf("Unexpected error with JSON fallback: %v", err)
+	}
+	if len(servers) != 1 {
+		t.Errorf("Expected 1 server (fallback to JSON), got %d", len(servers))
+	}
+	if servers[0].Name != "fallback-server" {
+		t.Errorf("Expected server name 'fallback-server', got '%s'", servers[0].Name)
+	}
+}
+
+func TestSaveServers_JSONFormat(t *testing.T) {
+	configDir, cleanup := setupTestDir(t)
+	defer cleanup()
+
+	homeDir, homeCleanup := setupTestHomeDir(t)
+	defer homeCleanup()
+
+	localConfig := LocalConfig{
+		Servers: make(map[string]models.Server),
+		Private: models.Servers{},
+	}
+	localData, _ := yaml.Marshal(localConfig)
+	os.WriteFile(filepath.Join(homeDir, ".sshy", "local.yaml"), localData, 0644)
+
+	existingJSON := models.Servers{
+		{Name: "existing", Host: "existing-host", User: "user", Port: 22},
+	}
+	existingData, _ := Marshal(existingJSON, FormatJSON)
+	os.WriteFile(filepath.Join(configDir, "servers.json"), existingData, 0644)
+
+	servers := models.Servers{
+		{Name: "new-server", Host: "new-host", User: "new-user", Port: 3333},
+	}
+	err := SaveServersWithPath(configDir, "servers.json", servers)
+	if err != nil {
+		t.Fatalf("SaveServersWithPath failed: %v", err)
+	}
+
+	savedData, err := os.ReadFile(filepath.Join(configDir, "servers.json"))
+	if err != nil {
+		t.Fatalf("Failed to read saved file: %v", err)
+	}
+
+	format := DetectFormatFromContent(savedData)
+	if format != FormatJSON {
+		t.Errorf("Expected saved file to be JSON format, got %v", format)
+	}
+
+	var savedServers models.Servers
+	err = Unmarshal(savedData, FormatJSON, &savedServers)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal saved JSON: %v", err)
+	}
+	if len(savedServers) != 1 || savedServers[0].Name != "new-server" {
+		t.Errorf("Saved servers don't match expected: %+v", savedServers)
+	}
+}

@@ -1,13 +1,13 @@
 package models
 
 type Server struct {
-	Name    string                 `yaml:"name"`
-	Host    string                 `yaml:"host"`
-	User    string                 `yaml:"user,omitempty"`
-	Port    int                    `yaml:"port,omitempty"`
-	Tags    []string               `yaml:"tags,omitempty"`
-	Key     string                 `yaml:"key,omitempty"`
-	Options map[string]interface{} `yaml:"options,omitempty"`
+	Name    string                 `yaml:"name" json:"name"`
+	Host    string                 `yaml:"host" json:"host"`
+	User    string                 `yaml:"user,omitempty" json:"user,omitempty"`
+	Port    int                    `yaml:"port,omitempty" json:"port,omitempty"`
+	Tags    []string               `yaml:"tags,omitempty" json:"tags,omitempty"`
+	Key     string                 `yaml:"key,omitempty" json:"key,omitempty"`
+	Options map[string]interface{} `yaml:"options,omitempty" json:"options,omitempty"`
 }
 
 type Servers []Server
