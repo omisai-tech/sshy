@@ -32,7 +32,7 @@ var scpCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error loading config: %w", err)
 		}
-		servers, err := config.LoadServers(cfg.ConfigPath)
+		servers, err := config.LoadServersWithPath(cfg.ConfigPath, cfg.GetServersSource())
 		if err != nil {
 			return fmt.Errorf("error loading servers: %w", err)
 		}

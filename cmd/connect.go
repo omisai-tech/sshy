@@ -49,7 +49,7 @@ var connectCmd = &cobra.Command{
 			return fmt.Errorf("error loading config: %w", err)
 		}
 
-		servers, err := config.LoadServersWithPath(cfg.ConfigPath, cfg.ServersPath)
+		servers, err := config.LoadServersWithPath(cfg.ConfigPath, cfg.GetServersSource())
 		if err != nil {
 			return fmt.Errorf("error loading servers: %w", err)
 		}

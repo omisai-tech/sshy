@@ -72,23 +72,49 @@ var initCmd = &cobra.Command{
 			altExt = ".json"
 		}
 
-		defaultServersPath := fmt.Sprintf("~/.sshy/servers%s", fileExt)
-		fmt.Printf("Enter the path for the shared servers file (default: %s): ", defaultServersPath)
-		serversPath, _ := reader.ReadString('\n')
-		serversPath = strings.TrimSpace(serversPath)
-		if serversPath == "" {
-			serversPath = defaultServersPath
-		}
+		fmt.Println("\nChoose how to configure shared servers:")
+		fmt.Println("  1) Local file path (default)")
+		fmt.Println("  2) Remote URL (HTTP/HTTPS)")
+		fmt.Print("Enter choice [1/2]: ")
+		sourceChoice, _ := reader.ReadString('\n')
+		sourceChoice = strings.TrimSpace(sourceChoice)
 
-		if strings.HasPrefix(serversPath, "~") {
-			serversPath = strings.Replace(serversPath, "~", home, 1)
-		}
+		var serversPath string
+		var serversURL string
+		var serversDir string
 
-		serversDir := filepath.Dir(serversPath)
-		err = os.MkdirAll(serversDir, 0755)
-		if err != nil {
-			fmt.Println("Error creating directory:", err)
-			return
+		if sourceChoice == "2" {
+			fmt.Print("Enter the URL for the shared servers configuration: ")
+			serversURL, _ = reader.ReadString('\n')
+			serversURL = strings.TrimSpace(serversURL)
+			if serversURL == "" {
+				fmt.Println("Error: URL cannot be empty")
+				return
+			}
+			if err := config.ValidateURL(serversURL); err != nil {
+				fmt.Println("Error:", err)
+				return
+			}
+			serversDir = sshyDir
+		} else {
+			defaultServersPath := fmt.Sprintf("~/.sshy/servers%s", fileExt)
+			fmt.Printf("Enter the path for the shared servers file (default: %s): ", defaultServersPath)
+			serversPath, _ = reader.ReadString('\n')
+			serversPath = strings.TrimSpace(serversPath)
+			if serversPath == "" {
+				serversPath = defaultServersPath
+			}
+
+			if strings.HasPrefix(serversPath, "~") {
+				serversPath = strings.Replace(serversPath, "~", home, 1)
+			}
+
+			serversDir = filepath.Dir(serversPath)
+			err = os.MkdirAll(serversDir, 0755)
+			if err != nil {
+				fmt.Println("Error creating directory:", err)
+				return
+			}
 		}
 
 		err = os.MkdirAll(sshyDir, 0755)
@@ -115,7 +141,12 @@ var initCmd = &cobra.Command{
 
 		cfg := config.DefaultConfig()
 		cfg.ConfigPath = serversDir
-		cfg.ServersPath = filepath.Base(serversPath)
+		if serversURL != "" {
+			cfg.ServersURL = serversURL
+			cfg.ServersPath = ""
+		} else {
+			cfg.ServersPath = filepath.Base(serversPath)
+		}
 
 		err = config.SaveGlobalConfigWithFormat(cfg, fileFormat)
 		if err != nil {
@@ -124,7 +155,7 @@ var initCmd = &cobra.Command{
 		}
 
 		serversCreated := false
-		if !fileExists(serversPath) {
+		if serversURL == "" && !fileExists(serversPath) {
 			var content []byte
 			if fileFormat == config.FormatJSON {
 				content = []byte("[\n]\n")
@@ -172,7 +203,9 @@ var initCmd = &cobra.Command{
 		} else {
 			fmt.Printf("Local config: %s (exists, unchanged)\n", localPath)
 		}
-		if serversCreated {
+		if serversURL != "" {
+			fmt.Printf("Servers URL: %s\n", serversURL)
+		} else if serversCreated {
 			fmt.Printf("Servers file: %s (created)\n", serversPath)
 		} else {
 			fmt.Printf("Servers file: %s (exists, unchanged)\n", serversPath)

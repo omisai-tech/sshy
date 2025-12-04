@@ -29,7 +29,7 @@ Use --tags to filter by tags.`,
 			return
 		}
 
-		serversWithSource, err := config.LoadServersWithSourceAndPath(cfg.ConfigPath, cfg.ServersPath)
+		serversWithSource, err := config.LoadServersWithSourceAndPath(cfg.ConfigPath, cfg.GetServersSource())
 		if err != nil {
 			fmt.Println("Error loading servers:", err)
 			return
