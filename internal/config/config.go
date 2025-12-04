@@ -30,13 +30,35 @@ func findConfigFile(basePath, primaryFile string) (string, FileFormat) {
 	return primaryPath, DetectFormat(primaryFile)
 }
 
+func detectPreferredFormat() FileFormat {
+	home, err := userHomeDir()
+	if err != nil {
+		return FormatYAML
+	}
+	sshyDir := filepath.Join(home, ".sshy")
+
+	if _, err := os.Stat(filepath.Join(sshyDir, "config.json")); err == nil {
+		return FormatJSON
+	}
+	return FormatYAML
+}
+
+func getLocalConfigFilename() string {
+	format := detectPreferredFormat()
+	if format == FormatJSON {
+		return "local.json"
+	}
+	return "local.yaml"
+}
+
 func loadLocalConfig() (LocalConfig, error) {
 	home, err := userHomeDir()
 	if err != nil {
 		return LocalConfig{}, err
 	}
 	sshyDir := filepath.Join(home, ".sshy")
-	localPath, format := findConfigFile(sshyDir, LocalConfigFile)
+	localFile := getLocalConfigFilename()
+	localPath, format := findConfigFile(sshyDir, localFile)
 	localData, err := os.ReadFile(localPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -174,9 +196,10 @@ func SaveLocalConfig(config LocalConfig) error {
 		return err
 	}
 	sshyDir := filepath.Join(home, ".sshy")
-	existingPath, format := findConfigFile(sshyDir, LocalConfigFile)
+	localFile := getLocalConfigFilename()
+	existingPath, format := findConfigFile(sshyDir, localFile)
 	if format == FormatUnknown {
-		format = FormatYAML
+		format = detectPreferredFormat()
 	}
 
 	data, err := Marshal(config, format)

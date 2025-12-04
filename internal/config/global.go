@@ -102,3 +102,30 @@ func SaveGlobalConfig(cfg *GlobalConfig) error {
 	}
 	return os.WriteFile(configPath, data, 0644)
 }
+
+func SaveGlobalConfigWithFormat(cfg *GlobalConfig, format FileFormat) error {
+	home, err := globalUserHomeDir()
+	if err != nil {
+		return err
+	}
+	configDir := filepath.Join(home, ".sshy")
+	err = os.MkdirAll(configDir, 0755)
+	if err != nil {
+		return err
+	}
+
+	var ext string
+	switch format {
+	case FormatJSON:
+		ext = ".json"
+	default:
+		ext = ".yaml"
+	}
+
+	configPath := filepath.Join(configDir, "config"+ext)
+	data, err := Marshal(cfg, format)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(configPath, data, 0644)
+}
