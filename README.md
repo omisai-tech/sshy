@@ -1,10 +1,11 @@
 # sshy
 
-A Go-based CLI tool for managing and connecting to SSH servers via YAML configuration.
+A Go-based CLI tool for managing and connecting to SSH servers via YAML or JSON configuration.
 
 ## Features
 
-- **YAML-based configuration** - Define servers in simple YAML files
+- **YAML & JSON configuration** - Define servers in YAML or JSON files
+- **Remote URL support** - Fetch server configurations from a remote URL (HTTP/HTTPS)
 - **Local overrides** - Override shared configurations with local settings
 - **Private servers** - Keep private servers separate from shared configs
 - **Fuzzy search** - Quickly find and connect to servers interactively
@@ -72,9 +73,13 @@ sshy connect my-server
 
 ## Configuration
 
-sshy uses two configuration files:
+sshy uses two configuration files and supports both YAML and JSON formats.
 
-### Shared servers (`~/.sshy/servers.yaml`)
+### Shared servers (`~/.sshy/servers.yaml` or `servers.json`)
+
+Shared servers can be configured from a local file or a remote URL.
+
+**YAML format:**
 
 ```yaml
 - name: production-server
@@ -92,7 +97,57 @@ sshy uses two configuration files:
     - staging
 ```
 
-### Local overrides (`~/.sshy/local.yaml`)
+**JSON format:**
+
+```json
+[
+  {
+    "name": "production-server",
+    "host": "192.168.1.100",
+    "user": "admin",
+    "port": 22,
+    "tags": ["prod", "web"]
+  },
+  {
+    "name": "staging-server",
+    "host": "192.168.1.101",
+    "user": "deploy",
+    "tags": ["staging"]
+  }
+]
+```
+
+### Remote URL Configuration
+
+You can configure sshy to fetch shared servers from a remote URL instead of a local file. This is useful when:
+
+- **VPN-protected environments**: Access sensitive server lists only when connected to your corporate VPN
+- **Dynamic server lists**: Server configurations change frequently and you want to always fetch the latest
+- **Centralized management**: Maintain server configurations in a central location accessible to your team
+
+To configure URL-based servers, run `sshy init` and choose option 2 for remote URL:
+
+```bash
+sshy init
+# Choose format (YAML/JSON)
+# Choose source type: 2) Remote URL
+# Enter the URL for your servers configuration
+```
+
+The global config (`~/.sshy/config.yaml`) will contain:
+
+```yaml
+servers_url: https://internal.company.com/api/servers.yaml
+config_path: /home/user/.sshy
+```
+
+The URL endpoint should return valid YAML or JSON in the same format as the local `servers.yaml` file. sshy will automatically detect the format based on:
+
+1. Response content (JSON starts with `{` or `[`)
+2. Content-Type header (`application/json`, `application/x-yaml`)
+3. URL file extension (`.json`, `.yaml`, `.yml`)
+
+### Local overrides (`~/.sshy/local.yaml` or `local.json`)
 
 ```yaml
 servers:
@@ -173,8 +228,8 @@ sshy local
 
 When listing servers, prefixes indicate the source:
 
-- `[S]` - Shared servers from `servers.yaml`
-- `[L]` - Local private servers from `local.yaml`
+- `[S]` - Shared servers from `servers.yaml`/`servers.json` or remote URL
+- `[L]` - Local private servers from `local.yaml`/`local.json`
 - `[O]` - Shared servers with local overrides
 
 ## License

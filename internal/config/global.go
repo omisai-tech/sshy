@@ -13,7 +13,19 @@ const (
 
 type GlobalConfig struct {
 	ServersPath string `yaml:"servers_path" json:"servers_path"`
+	ServersURL  string `yaml:"servers_url,omitempty" json:"servers_url,omitempty"`
 	ConfigPath  string `yaml:"config_path" json:"config_path"`
+}
+
+func (c *GlobalConfig) GetServersSource() string {
+	if c.ServersURL != "" {
+		return c.ServersURL
+	}
+	return c.ServersPath
+}
+
+func (c *GlobalConfig) IsRemoteSource() bool {
+	return c.ServersURL != "" && IsURL(c.ServersURL)
 }
 
 var globalUserHomeDir = os.UserHomeDir
@@ -72,7 +84,7 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cfg.ServersPath == "" {
+	if cfg.ServersPath == "" && cfg.ServersURL == "" {
 		cfg.ServersPath = "servers.yaml"
 	}
 	if cfg.ConfigPath == "" {

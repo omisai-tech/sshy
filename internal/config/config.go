@@ -76,11 +76,61 @@ func loadLocalConfig() (LocalConfig, error) {
 	return config, err
 }
 
+func mergeServers(sharedServers models.Servers, localConfig LocalConfig) models.Servers {
+	mergedServers := make(models.Servers, 0, len(sharedServers)+len(localConfig.Private))
+
+	for i := range sharedServers {
+		server := sharedServers[i]
+		if override, ok := localConfig.Servers[server.Name]; ok {
+			if override.Host != "" {
+				server.Host = override.Host
+			}
+			if override.User != "" {
+				server.User = override.User
+			}
+			if override.Port != 0 {
+				server.Port = override.Port
+			}
+			if len(override.Tags) > 0 {
+				server.Tags = override.Tags
+			}
+			if override.Key != "" {
+				server.Key = override.Key
+			}
+			if override.Options != nil {
+				server.Options = override.Options
+			}
+		}
+		mergedServers = append(mergedServers, server)
+	}
+
+	mergedServers = append(mergedServers, localConfig.Private...)
+	return mergedServers
+}
+
 func LoadServers(configPath string) (models.Servers, error) {
 	return LoadServersWithPath(configPath, SharedConfigFile)
 }
 
+func LoadServersWithURL(serversURL string) (models.Servers, error) {
+	sharedServers, err := FetchServersFromURL(serversURL)
+	if err != nil {
+		return nil, err
+	}
+
+	localConfig, err := loadLocalConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return mergeServers(sharedServers, localConfig), nil
+}
+
 func LoadServersWithPath(configPath, serversPath string) (models.Servers, error) {
+	if IsURL(serversPath) {
+		return LoadServersWithURL(serversPath)
+	}
+
 	sharedPath, format := findConfigFile(configPath, serversPath)
 	sharedData, err := os.ReadFile(sharedPath)
 	if err != nil {
@@ -107,38 +157,7 @@ func LoadServersWithPath(configPath, serversPath string) (models.Servers, error)
 		return nil, err
 	}
 
-	mergedServers := make(models.Servers, 0, len(sharedServers)+len(localConfig.Private))
-	serverMap := make(map[string]*models.Server)
-
-	for i := range sharedServers {
-		server := sharedServers[i]
-		serverMap[server.Name] = &server
-		if override, ok := localConfig.Servers[server.Name]; ok {
-			if override.Host != "" {
-				server.Host = override.Host
-			}
-			if override.User != "" {
-				server.User = override.User
-			}
-			if override.Port != 0 {
-				server.Port = override.Port
-			}
-			if len(override.Tags) > 0 {
-				server.Tags = override.Tags
-			}
-			if override.Key != "" {
-				server.Key = override.Key
-			}
-			if override.Options != nil {
-				server.Options = override.Options
-			}
-		}
-		mergedServers = append(mergedServers, server)
-	}
-
-	mergedServers = append(mergedServers, localConfig.Private...)
-
-	return mergedServers, nil
+	return mergeServers(sharedServers, localConfig), nil
 }
 
 func SaveServers(configPath string, servers models.Servers) error {
@@ -213,39 +232,11 @@ func LoadServersWithSource(configPath string) ([]models.ServerWithSource, error)
 	return LoadServersWithSourceAndPath(configPath, SharedConfigFile)
 }
 
-func LoadServersWithSourceAndPath(configPath, serversPath string) ([]models.ServerWithSource, error) {
-	sharedPath, format := findConfigFile(configPath, serversPath)
-	sharedData, err := os.ReadFile(sharedPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			sharedData = []byte{}
-		} else {
-			return nil, err
-		}
-	}
-
-	if format == FormatUnknown && len(sharedData) > 0 {
-		format = DetectFormatFromContent(sharedData)
-	}
-
-	var sharedServers models.Servers
-	if len(sharedData) > 0 {
-		if err := Unmarshal(sharedData, format, &sharedServers); err != nil {
-			return nil, err
-		}
-	}
-
-	localConfig, err := loadLocalConfig()
-	if err != nil {
-		return nil, err
-	}
-
+func mergeServersWithSource(sharedServers models.Servers, localConfig LocalConfig) []models.ServerWithSource {
 	mergedServers := make([]models.ServerWithSource, 0, len(sharedServers)+len(localConfig.Private))
-	serverMap := make(map[string]*models.Server)
 
 	for i := range sharedServers {
 		server := sharedServers[i]
-		serverMap[server.Name] = &server
 		if override, ok := localConfig.Servers[server.Name]; ok {
 			if override.Host != "" {
 				server.Host = override.Host
@@ -275,5 +266,53 @@ func LoadServersWithSourceAndPath(configPath, serversPath string) ([]models.Serv
 		mergedServers = append(mergedServers, models.ServerWithSource{Server: server, Source: models.SourceLocal})
 	}
 
-	return mergedServers, nil
+	return mergedServers
+}
+
+func LoadServersWithSourceURL(serversURL string) ([]models.ServerWithSource, error) {
+	sharedServers, err := FetchServersFromURL(serversURL)
+	if err != nil {
+		return nil, err
+	}
+
+	localConfig, err := loadLocalConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return mergeServersWithSource(sharedServers, localConfig), nil
+}
+
+func LoadServersWithSourceAndPath(configPath, serversPath string) ([]models.ServerWithSource, error) {
+	if IsURL(serversPath) {
+		return LoadServersWithSourceURL(serversPath)
+	}
+
+	sharedPath, format := findConfigFile(configPath, serversPath)
+	sharedData, err := os.ReadFile(sharedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			sharedData = []byte{}
+		} else {
+			return nil, err
+		}
+	}
+
+	if format == FormatUnknown && len(sharedData) > 0 {
+		format = DetectFormatFromContent(sharedData)
+	}
+
+	var sharedServers models.Servers
+	if len(sharedData) > 0 {
+		if err := Unmarshal(sharedData, format, &sharedServers); err != nil {
+			return nil, err
+		}
+	}
+
+	localConfig, err := loadLocalConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return mergeServersWithSource(sharedServers, localConfig), nil
 }

@@ -27,7 +27,7 @@ var rmCmd = &cobra.Command{
 			fmt.Println("Error loading local config:", err)
 			return
 		}
-		serversWithSource, err := config.LoadServersWithSourceAndPath(cfg.ConfigPath, cfg.ServersPath)
+		serversWithSource, err := config.LoadServersWithSourceAndPath(cfg.ConfigPath, cfg.GetServersSource())
 		if err != nil {
 			fmt.Println("Error loading servers:", err)
 			return

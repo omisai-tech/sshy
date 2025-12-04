@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 
 	"github.com/ktr0731/go-fuzzyfinder"
@@ -16,7 +18,7 @@ var viewCmd = &cobra.Command{
 	Long: `View the contents of configuration files.
 
 You can view:
-- servers.yaml: Shared server configuration
+- servers.yaml: Shared server configuration (local file or remote URL)
 - local.yaml: Local overrides and private servers`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := config.LoadGlobalConfig()
@@ -25,8 +27,13 @@ You can view:
 			return
 		}
 
+		serversLabel := cfg.GetServersSource()
+		if cfg.IsRemoteSource() {
+			serversLabel = fmt.Sprintf("URL: %s", cfg.ServersURL)
+		}
+
 		options := []string{
-			fmt.Sprintf("%s - Shared server configuration", cfg.ServersPath),
+			fmt.Sprintf("%s - Shared server configuration", serversLabel),
 			"local.yaml - Local overrides and private servers",
 		}
 
@@ -36,36 +43,62 @@ You can view:
 			return
 		}
 
-		var filePath string
+		var data []byte
 		var title string
 
 		switch idx {
 		case 0:
-			filePath = fmt.Sprintf("%s/%s", cfg.ConfigPath, cfg.ServersPath)
-			title = fmt.Sprintf("Shared Configuration (%s)", cfg.ServersPath)
+			if cfg.IsRemoteSource() {
+				title = fmt.Sprintf("Shared Configuration (URL: %s)", cfg.ServersURL)
+				resp, err := http.Get(cfg.ServersURL)
+				if err != nil {
+					fmt.Printf("Error fetching from URL: %v\n", err)
+					return
+				}
+				defer resp.Body.Close()
+				if resp.StatusCode != http.StatusOK {
+					fmt.Printf("Error: server returned status %d\n", resp.StatusCode)
+					return
+				}
+				data, err = io.ReadAll(resp.Body)
+				if err != nil {
+					fmt.Printf("Error reading response: %v\n", err)
+					return
+				}
+			} else {
+				filePath := fmt.Sprintf("%s/%s", cfg.ConfigPath, cfg.ServersPath)
+				title = fmt.Sprintf("Shared Configuration (%s)", cfg.ServersPath)
+				data, err = os.ReadFile(filePath)
+				if err != nil {
+					if os.IsNotExist(err) {
+						fmt.Printf("%s does not exist or is empty\n", title)
+						return
+					}
+					fmt.Printf("Error reading %s: %v\n", title, err)
+					return
+				}
+			}
 		case 1:
 			home, err := os.UserHomeDir()
 			if err != nil {
 				fmt.Println("Error getting home directory:", err)
 				return
 			}
-			filePath = fmt.Sprintf("%s/.sshy/local.yaml", home)
+			filePath := fmt.Sprintf("%s/.sshy/local.yaml", home)
 			title = "Local Configuration (local.yaml)"
-		}
-
-		data, err := os.ReadFile(filePath)
-		if err != nil {
-			if os.IsNotExist(err) {
-				fmt.Printf("%s does not exist or is empty\n", title)
+			data, err = os.ReadFile(filePath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					fmt.Printf("%s does not exist or is empty\n", title)
+					return
+				}
+				fmt.Printf("Error reading %s: %v\n", title, err)
 				return
 			}
-			fmt.Printf("Error reading %s: %v\n", title, err)
-			return
 		}
 
 		fmt.Printf("=== %s ===\n\n", title)
 
-		// Pretty print YAML if possible
 		var obj interface{}
 		if err := yaml.Unmarshal(data, &obj); err == nil {
 			prettyData, err := yaml.Marshal(obj)
@@ -75,7 +108,6 @@ You can view:
 			}
 		}
 
-		// Fallback to raw output
 		fmt.Print(string(data))
 	},
 }
