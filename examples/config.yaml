@@ -1,0 +1,5 @@
+# Example global configuration (YAML format)
+# This file is stored in ~/.sshy/config.yaml
+
+servers_path: servers.yaml
+config_path: /home/user/projects/my-team-servers
