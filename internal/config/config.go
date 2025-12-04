@@ -3,9 +3,9 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/omisai-tech/sshy/internal/models"
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -14,8 +14,20 @@ const (
 )
 
 type LocalConfig struct {
-	Servers map[string]models.Server `yaml:"servers"`
-	Private models.Servers           `yaml:"private"`
+	Servers map[string]models.Server `yaml:"servers" json:"servers"`
+	Private models.Servers           `yaml:"private" json:"private"`
+}
+
+func findConfigFile(basePath, primaryFile string) (string, FileFormat) {
+	primaryPath := filepath.Join(basePath, primaryFile)
+	if _, err := os.Stat(primaryPath); err == nil {
+		return primaryPath, DetectFormat(primaryFile)
+	}
+	alternatePath := filepath.Join(basePath, GetAlternateFilename(primaryFile))
+	if _, err := os.Stat(alternatePath); err == nil {
+		return alternatePath, DetectFormat(GetAlternateFilename(primaryFile))
+	}
+	return primaryPath, DetectFormat(primaryFile)
 }
 
 func loadLocalConfig() (LocalConfig, error) {
@@ -23,17 +35,22 @@ func loadLocalConfig() (LocalConfig, error) {
 	if err != nil {
 		return LocalConfig{}, err
 	}
-	localPath := filepath.Join(home, ".sshy", LocalConfigFile)
+	sshyDir := filepath.Join(home, ".sshy")
+	localPath, format := findConfigFile(sshyDir, LocalConfigFile)
 	localData, err := os.ReadFile(localPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return LocalConfig{}, nil // No local config, return empty
+			return LocalConfig{}, nil
 		}
 		return LocalConfig{}, err
 	}
 
+	if format == FormatUnknown {
+		format = DetectFormatFromContent(localData)
+	}
+
 	var config LocalConfig
-	err = yaml.Unmarshal(localData, &config)
+	err = Unmarshal(localData, format, &config)
 	return config, err
 }
 
@@ -42,31 +59,32 @@ func LoadServers(configPath string) (models.Servers, error) {
 }
 
 func LoadServersWithPath(configPath, serversPath string) (models.Servers, error) {
-	// Load shared servers
-	sharedPath := filepath.Join(configPath, serversPath)
+	sharedPath, format := findConfigFile(configPath, serversPath)
 	sharedData, err := os.ReadFile(sharedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			sharedData = []byte{} // Treat as empty if not found
+			sharedData = []byte{}
 		} else {
 			return nil, err
 		}
 	}
 
+	if format == FormatUnknown && len(sharedData) > 0 {
+		format = DetectFormatFromContent(sharedData)
+	}
+
 	var sharedServers models.Servers
 	if len(sharedData) > 0 {
-		if err := yaml.Unmarshal(sharedData, &sharedServers); err != nil {
+		if err := Unmarshal(sharedData, format, &sharedServers); err != nil {
 			return nil, err
 		}
 	}
 
-	// Load local overrides and private servers
 	localConfig, err := loadLocalConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	// Merge configurations
 	mergedServers := make(models.Servers, 0, len(sharedServers)+len(localConfig.Private))
 	serverMap := make(map[string]*models.Server)
 
@@ -74,7 +92,6 @@ func LoadServersWithPath(configPath, serversPath string) (models.Servers, error)
 		server := sharedServers[i]
 		serverMap[server.Name] = &server
 		if override, ok := localConfig.Servers[server.Name]; ok {
-			// Apply overrides
 			if override.Host != "" {
 				server.Host = override.Host
 			}
@@ -97,7 +114,6 @@ func LoadServersWithPath(configPath, serversPath string) (models.Servers, error)
 		mergedServers = append(mergedServers, server)
 	}
 
-	// Add private servers
 	mergedServers = append(mergedServers, localConfig.Private...)
 
 	return mergedServers, nil
@@ -108,7 +124,6 @@ func SaveServers(configPath string, servers models.Servers) error {
 }
 
 func SaveServersWithPath(configPath, serversPath string, servers models.Servers) error {
-	// Read local config to identify private servers
 	localConfig, err := loadLocalConfig()
 	if err != nil {
 		return err
@@ -118,21 +133,32 @@ func SaveServersWithPath(configPath, serversPath string, servers models.Servers)
 		privateServerMap[p.Name] = struct{}{}
 	}
 
-	// Prepare a list of servers to save, excluding private servers and keys.
 	serversToSave := make(models.Servers, 0, len(servers))
 	for _, server := range servers {
 		if _, isPrivate := privateServerMap[server.Name]; !isPrivate {
 			serverToSave := server
-			serverToSave.Key = "" // Never save the key to the shared file
+			serverToSave.Key = ""
 			serversToSave = append(serversToSave, serverToSave)
 		}
 	}
 
-	fullPath := filepath.Join(configPath, serversPath)
-	data, err := yaml.Marshal(serversToSave)
+	existingPath, format := findConfigFile(configPath, serversPath)
+	if format == FormatUnknown {
+		format = DetectFormat(serversPath)
+	}
+	if format == FormatUnknown {
+		format = FormatYAML
+	}
+
+	data, err := Marshal(serversToSave, format)
 	if err != nil {
 		return err
 	}
+
+	if strings.TrimSuffix(filepath.Base(existingPath), filepath.Ext(existingPath)) == strings.TrimSuffix(serversPath, filepath.Ext(serversPath)) {
+		return os.WriteFile(existingPath, data, 0644)
+	}
+	fullPath := filepath.Join(configPath, serversPath)
 	return os.WriteFile(fullPath, data, 0644)
 }
 
@@ -147,12 +173,17 @@ func SaveLocalConfig(config LocalConfig) error {
 	if err != nil {
 		return err
 	}
-	localPath := filepath.Join(home, ".sshy", LocalConfigFile)
-	data, err := yaml.Marshal(config)
+	sshyDir := filepath.Join(home, ".sshy")
+	existingPath, format := findConfigFile(sshyDir, LocalConfigFile)
+	if format == FormatUnknown {
+		format = FormatYAML
+	}
+
+	data, err := Marshal(config, format)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(localPath, data, 0644)
+	return os.WriteFile(existingPath, data, 0644)
 }
 
 func LoadServersWithSource(configPath string) ([]models.ServerWithSource, error) {
@@ -160,31 +191,32 @@ func LoadServersWithSource(configPath string) ([]models.ServerWithSource, error)
 }
 
 func LoadServersWithSourceAndPath(configPath, serversPath string) ([]models.ServerWithSource, error) {
-	// Load shared servers
-	sharedPath := filepath.Join(configPath, serversPath)
+	sharedPath, format := findConfigFile(configPath, serversPath)
 	sharedData, err := os.ReadFile(sharedPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			sharedData = []byte{} // Treat as empty if not found
+			sharedData = []byte{}
 		} else {
 			return nil, err
 		}
 	}
 
+	if format == FormatUnknown && len(sharedData) > 0 {
+		format = DetectFormatFromContent(sharedData)
+	}
+
 	var sharedServers models.Servers
 	if len(sharedData) > 0 {
-		if err := yaml.Unmarshal(sharedData, &sharedServers); err != nil {
+		if err := Unmarshal(sharedData, format, &sharedServers); err != nil {
 			return nil, err
 		}
 	}
 
-	// Load local overrides and private servers
 	localConfig, err := loadLocalConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	// Merge configurations
 	mergedServers := make([]models.ServerWithSource, 0, len(sharedServers)+len(localConfig.Private))
 	serverMap := make(map[string]*models.Server)
 
@@ -192,7 +224,6 @@ func LoadServersWithSourceAndPath(configPath, serversPath string) ([]models.Serv
 		server := sharedServers[i]
 		serverMap[server.Name] = &server
 		if override, ok := localConfig.Servers[server.Name]; ok {
-			// Apply overrides
 			if override.Host != "" {
 				server.Host = override.Host
 			}
@@ -217,7 +248,6 @@ func LoadServersWithSourceAndPath(configPath, serversPath string) ([]models.Serv
 		}
 	}
 
-	// Add private servers
 	for _, server := range localConfig.Private {
 		mergedServers = append(mergedServers, models.ServerWithSource{Server: server, Source: models.SourceLocal})
 	}

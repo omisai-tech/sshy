@@ -5,12 +5,15 @@ import (
 	"path/filepath"
 
 	"github.com/omisai-tech/sshy/internal/models"
-	"gopkg.in/yaml.v3"
+)
+
+const (
+	GlobalConfigFile = "config.yaml"
 )
 
 type GlobalConfig struct {
-	ServersPath string `yaml:"servers_path"`
-	ConfigPath  string `yaml:"config_path"`
+	ServersPath string `yaml:"servers_path" json:"servers_path"`
+	ConfigPath  string `yaml:"config_path" json:"config_path"`
 }
 
 var globalUserHomeDir = os.UserHomeDir
@@ -29,7 +32,7 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 		return DefaultConfig(), nil
 	}
 	configDir := filepath.Join(home, ".sshy")
-	configPath := filepath.Join(configDir, "config.yaml")
+	configPath, format := findConfigFile(configDir, GlobalConfigFile)
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		cfg := DefaultConfig()
@@ -43,7 +46,7 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 				Servers: make(map[string]models.Server),
 				Private: make(models.Servers, 0),
 			}
-			data, err := yaml.Marshal(defaultLocal)
+			data, err := Marshal(defaultLocal, FormatYAML)
 			if err != nil {
 				return nil, err
 			}
@@ -59,8 +62,13 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if format == FormatUnknown {
+		format = DetectFormatFromContent(data)
+	}
+
 	var cfg GlobalConfig
-	err = yaml.Unmarshal(data, &cfg)
+	err = Unmarshal(data, format, &cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -83,8 +91,12 @@ func SaveGlobalConfig(cfg *GlobalConfig) error {
 	if err != nil {
 		return err
 	}
-	configPath := filepath.Join(configDir, "config.yaml")
-	data, err := yaml.Marshal(cfg)
+	configPath, format := findConfigFile(configDir, GlobalConfigFile)
+	if format == FormatUnknown {
+		format = FormatYAML
+	}
+
+	data, err := Marshal(cfg, format)
 	if err != nil {
 		return err
 	}
