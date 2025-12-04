@@ -1,0 +1,48 @@
+[
+    {
+        "name": "production-web",
+        "host": "web.example.com",
+        "user": "deploy",
+        "port": 22,
+        "tags": [
+            "production",
+            "web"
+        ],
+        "options": {
+            "ServerAliveInterval": 60
+        }
+    },
+    {
+        "name": "staging-web",
+        "host": "staging.example.com",
+        "user": "deploy",
+        "port": 22,
+        "tags": [
+            "staging",
+            "web"
+        ]
+    },
+    {
+        "name": "database-primary",
+        "host": "db-primary.internal",
+        "user": "admin",
+        "port": 22,
+        "tags": [
+            "production",
+            "database"
+        ],
+        "options": {
+            "LocalForward": "5432 localhost:5432"
+        }
+    },
+    {
+        "name": "jump-host",
+        "host": "bastion.example.com",
+        "user": "ops",
+        "port": 2222,
+        "tags": [
+            "infrastructure",
+            "bastion"
+        ]
+    }
+]

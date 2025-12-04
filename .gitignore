@@ -1,6 +1,6 @@
 sshy
-servers.yaml
-local.yaml
+/servers.yaml
+/local.yaml
 /servers/**/*
 .github/copilot-instructions.md
 dist/

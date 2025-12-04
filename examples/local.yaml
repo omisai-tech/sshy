@@ -1,0 +1,35 @@
+# Example local configuration (YAML format)
+# This file is stored in ~/.sshy/local.yaml and is NOT shared
+# Use it for local overrides and private servers
+
+# Override settings for shared servers (matched by name)
+servers:
+  production-web:
+    key: ~/.ssh/production_key
+  staging-web:
+    key: ~/.ssh/staging_key
+    user: myuser
+  database-primary:
+    key: ~/.ssh/db_key
+    options:
+      ProxyJump: jump-host
+
+# Private servers (not shared with team)
+private:
+  - name: personal-dev
+    host: dev.myserver.com
+    user: myuser
+    port: 22
+    key: ~/.ssh/personal_key
+    tags:
+      - personal
+      - development
+
+  - name: home-nas
+    host: 192.168.1.100
+    user: admin
+    port: 22
+    key: ~/.ssh/nas_key
+    tags:
+      - home
+      - storage
