@@ -13,9 +13,31 @@ A Go-based CLI tool for managing and connecting to SSH servers via YAML configur
 
 ## Installation
 
+### Quick install (Linux/macOS)
+
+```bash
+# Linux (amd64)
+curl -sL https://github.com/omisai-tech/sshy/releases/latest/download/sshy_$(curl -s https://api.github.com/repos/omisai-tech/sshy/releases/latest | grep '"tag_name"' | cut -d'"' -f4)_linux_amd64.tar.gz | tar xz -C /usr/local/bin sshy
+
+# Linux (arm64)
+curl -sL https://github.com/omisai-tech/sshy/releases/latest/download/sshy_$(curl -s https://api.github.com/repos/omisai-tech/sshy/releases/latest | grep '"tag_name"' | cut -d'"' -f4)_linux_arm64.tar.gz | tar xz -C /usr/local/bin sshy
+
+# macOS (Apple Silicon)
+curl -sL https://github.com/omisai-tech/sshy/releases/latest/download/sshy_$(curl -s https://api.github.com/repos/omisai-tech/sshy/releases/latest | grep '"tag_name"' | cut -d'"' -f4)_darwin_arm64.tar.gz | tar xz -C /usr/local/bin sshy
+
+# macOS (Intel)
+curl -sL https://github.com/omisai-tech/sshy/releases/latest/download/sshy_$(curl -s https://api.github.com/repos/omisai-tech/sshy/releases/latest | grep '"tag_name"' | cut -d'"' -f4)_darwin_amd64.tar.gz | tar xz -C /usr/local/bin sshy
+```
+
+Or use the install script:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/omisai-tech/sshy/master/install.sh | bash
+```
+
 ### From releases
 
-Download the latest binary from the [releases page](https://github.com/omisai-tech/sshy/releases).
+Download the latest binary for your platform from the [releases page](https://github.com/omisai-tech/sshy/releases).
 
 ### From source
 
