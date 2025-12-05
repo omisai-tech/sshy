@@ -224,6 +224,13 @@ sshy view
 sshy local
 ```
 
+### Update sshy
+
+```bash
+# Check for updates and update to the latest version
+sshy update
+```
+
 ## Server sources
 
 When listing servers, prefixes indicate the source:
