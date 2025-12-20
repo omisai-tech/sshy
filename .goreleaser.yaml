@@ -45,7 +45,7 @@ dockers:
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--label=org.opencontainers.image.title=sshy"
-      - "--label=org.opencontainers.image.description=Git-backed SSH manager CLI"
+      - "--label=org.opencontainers.image.description=Go-based CLI tool for managing and connecting to SSH servers via file configuration."
       - "--label=org.opencontainers.image.source=https://github.com/omisai-tech/sshy"
       - "--label=org.opencontainers.image.version={{.Version}}"
 
